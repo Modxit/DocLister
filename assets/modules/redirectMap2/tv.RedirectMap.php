@@ -2,9 +2,10 @@
 if (IN_MANAGER_MODE != 'true') {
     die('<h1>ERROR:</h1><p>Please use the MODx Content Manager instead of accessing this file directly.</p>');
 }
+global $manager_theme;
 $docID = !empty($_REQUEST['id']) ? (int)$_REQUEST['id'] : 0;
 
-$q = $modx->db->query("SELECT * FROM " . $modx->getFullTableName("site_modules") . " WHERE `modulecode` LIKE '%/RedirectMap/init.php%'");
+$q = $modx->db->query("SELECT * FROM " . $modx->getFullTableName("site_modules") . " WHERE `modulecode` LIKE '%assets/modules/redirectMap2/init.php%'");
 $module = $modx->db->getRow($q);
 $showLink = false;
 if (!empty($module['id']) && $module['disabled'] == 0) {
@@ -16,7 +17,7 @@ if (!empty($module['id']) && $module['disabled'] == 0) {
     }
     if (!empty($group)) {
 
-        $showLink = (bool)$modx->db->getValue("SELECT count(*) FROM evo_member_groups WHERE member='" . $modx->getLoginUserID('mgr') . "' AND user_group IN (" . implode(',', $group) . ")");
+        $showLink = (bool)$modx->db->getValue("SELECT count(*) FROM ".$modx->getFullTableName("member_groups")." WHERE member='" . $modx->getLoginUserID('mgr') . "' AND user_group IN (" . implode(',', $group) . ")");
     } else {
         $showLink = true;
     }
@@ -36,7 +37,7 @@ if ($showLink && $docID > 0) {
     );
     $out = '<div class="actionButtons" style="margin:5px 0px">
         <a href="' . MODX_MANAGER_URL . '?' . http_build_query($params) . '">
-            <img src="media/style/' . $manager_theme . '/images/icons/table.gif">
+            <img src="media/style/' . $modx->getConfig('manager_theme') . '/images/icons/table.gif">
             Управление редиректами
         </a>
     </div>';

@@ -1,15 +1,15 @@
 //<?php
 /**
- * DLglossary
- * 
- * DLglossary
+ * DLcrumbs
+ *
+ * DLcrumbs
  *
  * @category 	snippet
- * @version 	1
+ * @version 	1.2
  * @license 	http://www.gnu.org/copyleft/gpl.html GNU Public License (GPL)
- * @internal	@properties 
+ * @internal	@properties
  * @internal	@modx_category Content
  * @internal    @installset base, sample
  */
 
-return require MODX_BASE_PATH.'assets/snippets/DocLister/snippet.DLglossary.php';
+return require MODX_BASE_PATH.'assets/snippets/DocLister/snippet.DLcrumbs.php';

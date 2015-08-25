@@ -97,9 +97,9 @@ abstract class filterDocLister
     {
         // first parse the give filter string
         $parsed = explode(':', $filter, 4);
-        $this->field = isset($parsed[1]) ? $parsed[1] : null;
-        $this->operator = isset($parsed[2]) ? $parsed[2] : null;
-        $this->value = isset($parsed[3]) ? $parsed[3] : null;
+        $this->field = APIHelpers::getkey($parsed, 1);
+        $this->operator = APIHelpers::getkey($parsed, 2);
+        $this->value = APIHelpers::getkey($parsed, 3);
         // exit if something is wrong
         return !(empty($this->field) || empty($this->operator) || is_null($this->value));
     }
@@ -140,19 +140,19 @@ abstract class filterDocLister
                 break;
             case '>':
             case 'gt':
-                $output .= ' > ' . floatval($value);
+                $output .= ' > ' . str_replace(',','.',floatval($value));
                 break;
             case '<':
             case 'lt':
-                $output .= ' < ' . floatval($value);
+                $output .= ' < ' . str_replace(',','.',floatval($value));
                 break;
             case '<=':
             case 'elt':
-                $output .= ' <= ' . floatval($value);
+                $output .= ' <= ' . str_replace(',','.',floatval($value));
                 break;
             case '>=':
             case 'egt':
-                $output .= ' >= ' . floatval($value);
+                $output .= ' >= ' . str_replace(',','.',floatval($value));
                 break;
             case '%':
             case 'like':

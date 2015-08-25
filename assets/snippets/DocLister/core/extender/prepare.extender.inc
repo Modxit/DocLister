@@ -14,34 +14,36 @@ if (!defined('MODX_BASE_PATH')) {
 class prepare_DL_Extender extends extDocLister
 {
     private $_store = array();
-	
+
     public function setStore($name,$val){
         $this->_store[$name] = $val;
     }
-	
+
     public function getStore($name){
-        return isset($this->_store[$name]) ? $this->_store[$name] : null;
+        return APIHelpers::getkey($this->_store, $name);
     }
-	
+
     protected function run()
     {
-        $out = $this->_cfg;
-        if (($prepare = $this->DocLister->getCFGDef('prepare', '')) != '') {
+        $out = $this->getCFGDef('data', array());
+        $nameParam = $this->getCFGDef('nameParam', 'prepare');
+        $ret = $this->getCFGDef('return', null);
+        if (($prepare = $this->DocLister->getCFGDef($nameParam, '')) != '') {
             $params = $this->getParams($out);
             if(is_scalar($prepare)){
                 $names = explode(",", $prepare);
                 foreach($names as $item){
-                    $params['data'] = $this->callPrepare($item, $params);
+                    $params['data'] = $this->callPrepare($item, $params, $ret);
                     if($params['data'] === false){
                         break;
                     }
                 }
             }else{
-                $params['data'] = $this->callPrepare($prepare, $params);
+                $params['data'] = $this->callPrepare($prepare, $params, $ret);
             }
             $out = $params['data'];
         }
-        return $out;
+        return (!empty($ret) && is_scalar($ret) && isset($out[$ret])) ? $out[$ret] : $out;
     }
 
     public function getParams(array $data = array()){
@@ -52,8 +54,8 @@ class prepare_DL_Extender extends extDocLister
             'modx' => $this->modx
         );
     }
-	
-    public function callPrepare($name, array $params){
+
+    public function callPrepare($name, array $params, $ret = null){
         $out = null;
         if((is_object($name) && ($name instanceof Closure)) || is_callable($name)){
             $data = call_user_func($name, $params['data'], $params['modx'], $params['_DocLister'], $params['_extDocLister']);

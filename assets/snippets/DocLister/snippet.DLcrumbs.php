@@ -4,8 +4,6 @@
  *
  * @license GNU General Public License (GPL), http://www.gnu.org/copyleft/gpl.html
  * @author Agel_Nash <Agel_Nash@xaker.ru>
- *
- * @todo: добавить поддержку отображения/скрытия главной страницы
  */
 if (!defined('MODX_BASE_PATH')) {
     die('HACK???');
@@ -13,15 +11,21 @@ if (!defined('MODX_BASE_PATH')) {
 $_out = '';
 
 $_parents = array();
-if (!isset($hideMain) || (int)$hideMain == 0) {
+$hideMain = (!isset($hideMain) || (int)$hideMain == 0);
+if ($hideMain) {
     $_parents[] = $modx->config['site_start'];
 }
-
-$tmp = $modx->getParentIds($modx->documentObject['id']);
+$id = isset($id) ? $id : $modx->documentObject['id'];
+$tmp = $modx->getParentIds($id);
 $_parents = array_merge($_parents, array_reverse(array_values($tmp)));
+foreach($_parents as $i => $num){
+    if($num == $modx->config['site_start']){
+        unset($_parents[$i]);
+    }
+}
 
 if (isset($showCurrent) && (int)$showCurrent > 0) {
-    $_parents[] = $modx->documentObject['id'];
+    $_parents[] = $id;
 }
 
 if (!empty($_parents)) {

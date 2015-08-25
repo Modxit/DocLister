@@ -10,6 +10,7 @@
 #	Date: March 22, 2013
 #
 ####*/
+include_once(MODX_BASE_PATH . 'assets/lib/APIHelpers.class.php');
 
 class DLphx
 {
@@ -228,6 +229,9 @@ class DLphx
                     case "eq":
                         $condition[] = intval(($output == $modifier_value[$i]));
                         break;
+					case "empty":
+						 $condition[] = intval(empty($output));
+						break;
                     case "notequals":
                     case "isnot":
                     case "isnt":
@@ -283,7 +287,7 @@ class DLphx
                         break;
                     case "else":
                         $conditional = implode(' ', $condition);
-                        $isvalid = intval(eval("return (" . $conditional . ");"));
+						$isvalid = intval(eval("return (" . $conditional . ");"));
                         if (!$isvalid) {
                             $output = $modifier_value[$i];
                         }
@@ -300,6 +304,10 @@ class DLphx
                     ##### End of Conditional Modifiers
 
                     #####  String Modifiers
+					case "default":{
+                        $output = ($output === '') ? $modifier_value[0] : $output;
+                        break;
+                    }
                     case "lcase":
                     case "strtolower":
                         $output = $this->strtolower($output);
@@ -325,7 +333,7 @@ class DLphx
                         $output = html_entity_decode($output, ENT_QUOTES, $modx->config['modx_charset']);
                         break;
                     case "esc":
-                        $output = preg_replace("/&amp;(#[0-9]+|[a-z]+);/i", "&$1;", htmlspecialchars($output));
+                        $output = preg_replace("/&amp;(#[0-9]+|[a-z]+);/i", "&$1;", APIHelpers::e($output));
                         $output = str_replace(array("[", "]", "`"), array("&#91;", "&#93;", "&#96;"), $output);
                         break;
                     case "strip":
@@ -463,8 +471,8 @@ class DLphx
     // Returns a cleaned string escaping the HTML and special MODx characters
     function LogClean($string)
     {
-        $string = preg_replace("/&amp;(#[0-9]+|[a-z]+);/i", "&$1;", htmlspecialchars($string));
-        $string = str_replace(array("[", "]", "`"), array("&#91;", "&#93;", "&#96;"), $string);
+        $string = preg_replace("/&amp;(#[0-9]+|[a-z]+);/i", "&$1;", $string);
+        $string = APIHelpers::sanitarTag($string);
         return $string;
     }
 

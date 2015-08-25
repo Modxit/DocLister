@@ -25,14 +25,9 @@ class shopkeeperDocLister extends site_contentDocLister
      */
     public function getUrl($id = 0)
     {
-        $id = $id > 0 ? $id : $this->modx->documentIdentifier;
-        /**
-         * Экземпляр экстендера REQUEST
-         *
-         * @var $request null|request_DL_Extender
-         */
-        $request = $this->getExtender('request');
-        $link = $request ? $request : $this->getRequest();
+        $id = ((int)$id > 0) ? (int)$id : $this->getCurrentMODXPageID();
+		
+        $link = $this->checkExtender('request') ? $this->extender['request']->getLink() : $this->getRequest();
         if($id == $this->modx->config['site_start']){
             $url = $this->modx->config['site_url'].($link != '' ? "?{$link}" : "");
         }else{
@@ -78,60 +73,54 @@ class shopkeeperDocLister extends site_contentDocLister
                  */
                 $extPrepare = $this->getExtender('prepare');
 
+				/**
+                 * @var $extJotCount jotcount_DL_Extender
+                 */
+                $extJotCount = $this->getCFGdef('jotcount', 0) ? $this->getExtender('jotcount', true) : NULL;
+
+                if ($extJotCount) {
+                    $comments = $extJotCount->countComments(array_keys($this->_docs));
+                }
+
                 foreach ($this->_docs as $item) {
+					$this->renderTPL = $tpl;
                     if ($extUser) {
                         $item = $extUser->setUserData($item); //[+user.id.createdby+], [+user.fullname.publishedby+], [+dl.user.publishedby+]....
                     }
 
                     $item['summary'] = $extSummary ? $this->getSummary($item, $extSummary, '', 'content') : '';
 
-                    $item = array_merge($item, $sysPlh); //inside the chunks available all placeholders set via $modx->toPlaceholders with prefix id, and with prefix sysKey
-
-                    $item['iteration'] = $i; //[+iteration+] - Number element. Starting from zero
-                    $item[$this->getCFGDef("sysKey", "dl") . '.full_iteration'] = ($this->extPaginate) ? ($i + $this->getCFGDef('display', 0) * ($this->extPaginate->currentPage() - 1)) : $i;
-
-                    if($item['type'] == 'reference'){
-                        $item['url'] = is_numeric($item['content']) ? $this->modx->makeUrl($item['content'], '', '', $this->getCFGDef('urlScheme', '')) : $item['content'];
-                    }else{
-                        $item['url'] = $this->modx->makeUrl($item['id'], '', '', $this->getCFGDef('urlScheme', ''));
+					if ($extJotCount) {
+                        $item['jotcount'] = APIHelpers::getkey($comments, $item['id'], 0);
                     }
+
+                    $item = array_merge($item, $sysPlh); //inside the chunks available all placeholders set via $modx->toPlaceholders with prefix id, and with prefix sysKey
+					$item['iteration'] = $i; //[+iteration+] - Number element. Starting from zero
+
+                    if($this->getCFGDef('makeUrl', 1)){
+						if($item['type'] == 'reference'){
+							$item['url'] = is_numeric($item['content']) ? $this->modx->makeUrl($item['content'], '', '', $this->getCFGDef('urlScheme', '')) : $item['content'];
+						}else{
+							$item['url'] = $this->modx->makeUrl($item['id'], '', '', $this->getCFGDef('urlScheme', ''));
+						}
+					}
 
                     $item['date'] = $item['createdon'] + $this->modx->config['server_offset_time'];
                     if ($this->getCFGDef('dateFormat', '%d.%b.%y %H:%M') != '') {
                         $item['date'] = strftime($this->getCFGDef('dateFormat', '%d.%b.%y %H:%M'), $item['date']);
                     }
 
-                    $class = array();
+					$findTpl = $this->renderTPL;
+					extract($this->uniformPrepare($item, $i), EXTR_SKIP);
+					if ($this->renderTPL == '') {
+						$this->renderTPL = $findTpl;
+					}
 
-                    $this->renderTPL = $this->getCFGDef('tplId' . $i, $tpl);
-
-                    $iterationName = ($i % 2 == 0) ? 'Odd' : 'Even';
-                    $class[] = strtolower($iterationName);
-
-                    $this->renderTPL = $this->getCFGDef('tpl' . $iterationName, $this->renderTPL);
-
-                    if ($i == 1) {
-                        $this->renderTPL = $this->getCFGDef('tplFirst', $this->renderTPL);
-                        $class[] = 'first';
-                    }
-                    if ($i == count($this->_docs)) {
-                        $this->renderTPL = $this->getCFGDef('tplLast', $this->renderTPL);
-                        $class[] = 'last';
-                    }
-                    if ($this->modx->documentIdentifier == $item['id']) {
-                        $this->renderTPL = $this->getCFGDef('tplCurrent', $this->renderTPL);
-                        $item[$this->getCFGDef("sysKey", "dl") . '.active'] = 1; //[+active+] - 1 if $modx->documentIdentifer equal ID this element
-                        $class[] = 'current';
-                    } else {
-                        $item[$this->getCFGDef("sysKey", "dl") . '.active'] = 0;
-                    }
-                    $class = implode(" ", $class);
-                    $item[$this->getCFGDef("sysKey", "dl") . '.class'] = $class;
-                    if ($this->renderTPL == '') {
-                        $this->renderTPL = $tpl;
-                    }
                     if ($extPrepare) {
-                        $item = $extPrepare->init($this, $item);
+                        $item = $extPrepare->init($this, array(
+                            'data' => $item,
+                            'nameParam' => 'prepare'
+                        ));
                         if (is_bool($item) && $item === false) {
                             continue;
                         }
@@ -148,12 +137,7 @@ class shopkeeperDocLister extends site_contentDocLister
                 $noneTPL = $this->getCFGDef("noneTPL", "");
                 $out = ($noneTPL != '') ? $this->parseChunk($noneTPL, $sysPlh) : '';
             }
-            if (($this->getCFGDef("noneWrapOuter", "1") && count($this->_docs) == 0) || count($this->_docs) > 0) {
-                $ownerTPL = $this->getCFGDef("ownerTPL", "");
-                if ($ownerTPL != '') {
-                    $out = $this->parseChunk($ownerTPL, array($this->getCFGDef("sysKey", "dl") . ".wrap" => $out));
-                }
-            }
+            $out = $this->renderWrap($out);
         } else {
             $out = 'no template';
         }
@@ -191,11 +175,21 @@ class shopkeeperDocLister extends site_contentDocLister
                 switch ($this->getCFGDef('idType', 'parents')) {
                     case 'parents':
                     {
-                        if ($this->getCFGDef('showParent', '0')) {
-                            $tmpWhere = "(c.parent IN ({$sanitarInIDs}) OR c.id IN({$sanitarInIDs}))";
-                        } else {
-                            $tmpWhere = "c.parent IN ({$sanitarInIDs}) AND c.id NOT IN({$sanitarInIDs})";
-                        }
+						switch($this->getCFGDef('showParent', '0')){
+							case '-1':{
+								$tmpWhere = "c.parent IN (" . $sanitarInIDs . ")";
+								break;
+							}
+							case 0:{
+								$tmpWhere = "c.parent IN ({$sanitarInIDs}) AND c.id NOT IN({$sanitarInIDs})";
+								break;
+							}
+							case 1:
+							default: {
+								$tmpWhere = "(c.parent IN ({$sanitarInIDs}) OR c.id IN({$sanitarInIDs}))";
+							break;
+							}
+						}
                         if (($addDocs = $this->getCFGDef('documents', '')) != '') {
                             $addDocs = $this->sanitarIn($this->cleanIDs($addDocs));
                             $whereArr[] = "((" . $tmpWhere . ") OR c.id IN({$addDocs}))";
@@ -286,7 +280,7 @@ class shopkeeperDocLister extends site_contentDocLister
         return $out;
     }
 
-    public function getChildernFolder($id)
+    public function getChildrenFolder($id)
     {
         $where = $this->getCFGDef('addWhereFolder', '');
         $where = sqlHelper::trimLogicalOp($where);
@@ -314,44 +308,78 @@ class shopkeeperDocLister extends site_contentDocLister
 
     protected function getChildrenList()
     {
-        $where = $this->getCFGDef('addWhereList', '');
-        $where = sqlHelper::trimLogicalOp($where);
+		$where = array();
+		$out = array();
+		
+		$tmpWhere = $this->getCFGDef('addWhereList', '');
+		$tmpWhere = sqlHelper::trimLogicalOp($tmpWhere);
+		if (!empty($tmpWhere)) {
+			$where[] = $tmpWhere;
+		}
 
-        $where = ($where ? $where . ' AND ' : '') . $this->_filters['where'];
-        $where = sqlHelper::trimLogicalOp($where);
-
-        if ($where != '') {
-            $where .= " AND ";
-        }
+		$tmpWhere = sqlHelper::trimLogicalOp($this->_filters['where']);
+		if (!empty($tmpWhere)) {
+			$where[] = $tmpWhere;
+		}
 
         $tbl_site_content = $this->getTable('catalog', 'c');
 
         $sort = $this->SortOrderSQL("c.createdon");
         list($from, $sort) = $this->injectSortByTV($tbl_site_content . ' ' . $this->_filters['join'], $sort);
+        $sanitarInIDs = $this->sanitarIn($this->IDs);
 
-        $tmpWhere = "c.parent IN (" . $this->sanitarIn($this->IDs) . ")";
-        $tmpWhere .= (($this->getCFGDef('showParent', '0')) ? "" : " AND c.id NOT IN(" . $this->sanitarIn($this->IDs) . ")");
+        $tmpWhere = null;
 
-        if (($addDocs = $this->getCFGDef('documents', '')) != '') {
-            $addDocs = $this->sanitarIn($this->cleanIDs($addDocs));
-            $tmpWhere = "((" . $tmpWhere . ") OR c.id IN({$addDocs}))";
-        }
-        $where = "WHERE {$where} {$tmpWhere}";
-        if (!$this->getCFGDef('showNoPublish', 0)) {
-            $where .= " AND c.published=1";
-        }
+		if ($sanitarInIDs != "''") {
+			switch($this->getCFGDef('showParent', '0')){
+				case '-1':{
+					$tmpWhere = "c.parent IN (" . $sanitarInIDs . ")";
+					break;
+				}
+				case 0:{
+					$tmpWhere = "c.parent IN (" . $sanitarInIDs . ") AND c.id NOT IN(" . $sanitarInIDs . ")";
+					break;
+				}
+				case 1:
+				default: {
+				$tmpWhere = "(c.parent IN (" . $sanitarInIDs . ") OR c.id IN({$sanitarInIDs}))";
+				break;
+				}
+			}
+		}
+		if (($addDocs = $this->getCFGDef('documents', '')) != '') {
+			$addDocs = $this->sanitarIn($this->cleanIDs($addDocs));
+			if(empty($tmpWhere)){
+				$tmpWhere = "c.id IN({$addDocs})";
+			}else{
+				$tmpWhere = "((" . $tmpWhere . ") OR c.id IN({$addDocs}))";
+			}
+		}
+		if (!empty($tmpWhere)) {
+			$where[] = $tmpWhere;
+		}
+		if (!$this->getCFGDef('showNoPublish', 0)) {
+			$where[] = "c.published=1";
+		}
+		if (!empty($where)) {
+			$where = "WHERE " . implode(" AND ", $where);
+		} else {
+			$where = '';
+		}
         $fields = $this->getCFGDef('selectFields', 'c.*');
+		$group = $this->getGroupSQL($this->getCFGDef('groupBy', 'c.id'));
+		if ($sanitarInIDs != "''" || $this->getCFGDef('ignoreEmpty', '0')) {
+			$sql = $this->dbQuery("SELECT {$fields} FROM " . $from . " " . $where . " " .
+				$group . " ".
+				$sort . " " .
+				$this->LimitSQL($this->getCFGDef('queryLimit', 0))
+			);
 
-        $sql = $this->dbQuery("SELECT DISTINCT " . $fields . " FROM " . $from . " " . $where . " " .
-            $sort . " " .
-            $this->LimitSQL($this->getCFGDef('queryLimit', 0))
-        );
-
-        $rows = $this->modx->db->makeArray($sql);
-        $out = array();
-        foreach ($rows as $item) {
-            $out[$item['id']] = $item;
-        }
-        return $out;
+			$rows = $this->modx->db->makeArray($sql);
+			foreach ($rows as $item) {
+				$out[$item['id']] = $item;
+			}
+		}
+		return $out;
     }
 }
